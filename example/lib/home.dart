@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bluetooth_advanced/bluetooth_device.dart';
+import 'package:flutter_bluetooth_advanced/bluetooth_state.dart';
 import 'package:flutter_bluetooth_advanced/flutter_bluetooth_advanced.dart';
 import 'package:flutter_bluetooth_advanced/scanner_call_back_events.dart';
 
@@ -21,11 +22,29 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       floatingActionButton: _scanButton(),
-      appBar: AppBar(centerTitle: true, title: Text('Devices')),
+      appBar: AppBar(
+        centerTitle: true,
+        title: Column(
+          children: [Text('Devices'), bluetoothState()],
+        ),
+      ),
       body: Column(
         children: [Expanded(child: getDevices())],
       ),
     );
+  }
+
+  Widget bluetoothState() {
+    return StreamBuilder(
+        stream: widget.flutterBluetoothAdvanced.registerBluetoothStateChange(),
+        builder: (context, AsyncSnapshot<BluetoothState> snapshot) {
+          final result = (snapshot.data?.currentState ?? "unknown");
+          return Center(
+              child: Text(
+            'bluetooth ' + result,
+            style: TextStyle(fontSize: 13),
+          ));
+        });
   }
 
   Widget _scanButton() {

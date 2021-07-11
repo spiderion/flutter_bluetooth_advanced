@@ -34,6 +34,7 @@ class FlutterBluetoothAdvancedPlugin : FlutterPlugin, MethodCallHandler, Activit
             MethodNameKeys.connect -> onConnect(call.arguments as String, result)
             MethodNameKeys.disconnect -> onDisconnect(call.arguments as String, result)
             MethodNameKeys.disconnectAll -> onDisconnectAll(result)
+            MethodNameKeys.listenBluetoothState -> onListenBluetoothState(result)
             else -> result.notImplemented()
 
         }
@@ -71,8 +72,16 @@ class FlutterBluetoothAdvancedPlugin : FlutterPlugin, MethodCallHandler, Activit
         })
     }
 
+    private fun onListenBluetoothState(result: Result) {
+        bluetoothManager?.listenBluetoothState(object : BluetoothStateChangeListener {
+            override fun onStateChanged(bluetoothState: String?) {
+                sendEventToFlutter(EventChannelTypes.bluetoothStateChanged, bluetoothState)
+            }
+        })
+    }
+
     private fun onScan(result: Result) {
-        bluetoothManager?.scanDevices(object : ScannerCallBackEvents {
+        bluetoothManager?.scanDevices(object : ScanEventListener {
             override fun onDeviceFound(device: Map<String, Any?>) {
                 sendEventToFlutter(EventChannelTypes.deviceScanFound, device)
             }

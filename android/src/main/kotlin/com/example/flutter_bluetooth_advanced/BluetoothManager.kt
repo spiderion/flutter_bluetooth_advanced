@@ -17,24 +17,25 @@ import android.util.Log
 
 class BluetoothManager(private val activity: Activity) {
     private var currentScanReceiver: BroadcastReceiver? = null
+    private var currentBluetoothStateReceiver: BroadcastReceiver? = null
     private val bluetoothAdapter: BluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
     private val connectionThreads = arrayListOf<ConnectionThread>()
 
-    fun scanDevices(callBackEvents: ScannerCallBackEvents) {
+    fun scanDevices(listener: ScanEventListener) {
         if (bluetoothAdapter.isDiscovering) {
             bluetoothAdapter.cancelDiscovery()
         }
         checkPermissions()
-        unregisterCurrentScanReceiver()
+        unregisterReceiver(currentScanReceiver)
         val intentFilter = IntentFilter()
         intentFilter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
-        intentFilter.addAction(BluetoothDevice.ACTION_FOUND);
-        intentFilter.addAction(ACTION_DISCOVERY_STARTED);
+        intentFilter.addAction(BluetoothDevice.ACTION_FOUND)
+        intentFilter.addAction(ACTION_DISCOVERY_STARTED)
         currentScanReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 when {
                     intent?.action?.equals(ACTION_DISCOVERY_STARTED) == true -> {
-                        callBackEvents.onScanStarted()
+                        listener.onScanStarted()
                     }
                     intent?.action?.equals(BluetoothDevice.ACTION_FOUND) == true -> {
                         val device: BluetoothDevice? = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
@@ -43,20 +44,41 @@ class BluetoothManager(private val activity: Activity) {
                                 "name" to device?.name,
                                 "type" to getDeviceType(device)?.text
                         )
-                        callBackEvents.onDeviceFound(deviceMap)
+                        listener.onDeviceFound(deviceMap)
                     }
                     intent?.action?.equals(BluetoothAdapter.ACTION_DISCOVERY_FINISHED) == true -> {
-                        unregisterCurrentScanReceiver()
-                        callBackEvents.onScanFinished();
+                        unregisterReceiver(currentScanReceiver)
+                        listener.onScanFinished()
                     }
                 }
             }
 
         }
         activity.registerReceiver(currentScanReceiver, intentFilter)
-        val result = bluetoothAdapter.startDiscovery()
-        val state = bluetoothAdapter.state
-        //Toast.makeText(activity, "isDiscovering: $result , State: $state", Toast.LENGTH_LONG).show();
+        bluetoothAdapter.startDiscovery()
+    }
+
+    fun listenBluetoothState(stateChangeListener: BluetoothStateChangeListener) {
+        val intentFilter = IntentFilter()
+        intentFilter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED)
+        val state = getBluetoothStateFromInt(bluetoothAdapter.state)
+        stateChangeListener.onStateChanged(state?.stringState)
+        currentBluetoothStateReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                when {
+                    intent?.action?.equals(BluetoothAdapter.ACTION_STATE_CHANGED) == true -> {
+                        val currentState = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothDevice.ERROR)
+                        val stateEvent = getBluetoothStateFromInt(currentState)
+                        stateChangeListener.onStateChanged(stateEvent?.stringState)
+                    }
+                }
+            }
+        }
+        activity.registerReceiver(currentBluetoothStateReceiver, intentFilter)
+    }
+
+    fun getBluetoothStateFromInt(currentState: Int): BluetoothState? {
+        return BluetoothStates.bluetoothStates.find { currentState == it.intState }
     }
 
     fun connectToDevice(address: String, onConnected: () -> Unit, onErrorResult: (error: String) -> Unit) {
@@ -79,9 +101,9 @@ class BluetoothManager(private val activity: Activity) {
         connectionThread.run()
     }
 
-    private fun unregisterCurrentScanReceiver() {
+    private fun unregisterReceiver(receiver: BroadcastReceiver?) {
         try {
-            currentScanReceiver?.let {
+            receiver?.let {
                 activity.unregisterReceiver(it)
                 currentScanReceiver = null
             }
@@ -129,7 +151,7 @@ class BluetoothManager(private val activity: Activity) {
     }
 }
 
-interface ScannerCallBackEvents {
+interface ScanEventListener {
     fun onDeviceFound(device: Map<String, Any?>)
 
     fun onScanStarted()
@@ -137,4 +159,8 @@ interface ScannerCallBackEvents {
     fun onScanFinished()
 
     fun onError(errorMessage: String)
+}
+
+interface BluetoothStateChangeListener {
+    fun onStateChanged(bluetoothState: String?)
 }

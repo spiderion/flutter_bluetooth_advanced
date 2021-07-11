@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bluetooth_advanced/bluetooth_device.dart';
 import 'package:flutter_bluetooth_advanced/scanner_call_back_events.dart';
 
+import 'bluetooth_state.dart';
 import 'event_channel_types.dart';
 
 class FlutterBluetoothAdvanced {
@@ -11,7 +12,8 @@ class FlutterBluetoothAdvanced {
   static const EventChannel _eventChannel = const EventChannel(createEventChannelMethodName);
   static const String createEventChannelMethodName = 'flutter_bluetooth_events';
   StreamSubscription? _subscription;
-  ScannerCallBackEvents? _callBackEvents;
+  ScannerCallBackEvents? _scanEvents;
+  StreamController<BluetoothState>? _bluetoothStateController;
 
   _shouldInit() async {
     _subscription ??= _registerNativeEvents();
@@ -21,12 +23,26 @@ class FlutterBluetoothAdvanced {
     return _eventChannel.receiveBroadcastStream().listen((dynamic event) {
       if (_getEventType(event) == EventChannelTypes.deviceScanFound) {
         final device = _createDeviceFromData(_getEventData(event));
-        _callBackEvents?.onDeviceFound?.call(device);
+        _scanEvents?.onDeviceFound?.call(device);
       } else if (_getEventType(event) == EventChannelTypes.scanStarted) {
-        _callBackEvents?.onScanStarted?.call();
+        _scanEvents?.onScanStarted?.call();
       } else if (_getEventType(event) == EventChannelTypes.scanFinished) {
-        _callBackEvents?.onScanFinished?.call();
+        _scanEvents?.onScanFinished?.call();
+      } else if (_getEventType(event) == EventChannelTypes.bluetoothStateChanged) {
+        _bluetoothStateController?.add(BluetoothState(_getEventData(event)));
       }
+    });
+  }
+
+  Stream<BluetoothState> registerBluetoothStateChange() {
+    _shouldInit();
+    _createBluetoothStreamController();
+    return _bluetoothStateController!.stream;
+  }
+
+  void _createBluetoothStreamController() {
+    _bluetoothStateController ??= StreamController<BluetoothState>(onListen: () {
+      _channel.invokeMethod(MethodNameKeys.listenBluetoothState);
     });
   }
 
@@ -38,8 +54,8 @@ class FlutterBluetoothAdvanced {
         address: address,
         name: name,
         type: type,
-        connect: () => connect(address),
-        disconnect: () => disconnect(address));
+        connect: () => _connect(address),
+        disconnect: () => _disconnect(address));
   }
 
   String? _getEventType(event) => (event as Map)['type'];
@@ -47,7 +63,7 @@ class FlutterBluetoothAdvanced {
   dynamic _getEventData(event) => (event as Map)['data'];
 
   void scan(ScannerCallBackEvents callBackEvents) async {
-    _callBackEvents = callBackEvents;
+    _scanEvents = callBackEvents;
     _shouldInit();
     _channel.invokeMethod(MethodNameKeys.scan);
   }
@@ -55,15 +71,16 @@ class FlutterBluetoothAdvanced {
   void dispose() async {
     disconnectAll();
     _subscription?.cancel();
+    _bluetoothStateController?.close();
     _subscription = null;
   }
 
-  Future<bool> connect(String address) async {
+  Future<bool> _connect(String address) async {
     final hasConnected = await _channel.invokeMethod(MethodNameKeys.connect, address);
     return hasConnected;
   }
 
-  Future<bool> disconnect(String address) async {
+  Future<bool> _disconnect(String address) async {
     final hasDisconnected = await _channel.invokeMethod(MethodNameKeys.disconnect, address);
     return hasDisconnected;
   }
