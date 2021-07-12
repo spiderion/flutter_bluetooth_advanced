@@ -101,6 +101,7 @@ class _HomePageState extends State<HomePage> {
         trailing: ElevatedButton(
           style: buttonStyle().copyWith(backgroundColor: MaterialStateProperty.all(Colors.orange)),
           onPressed: () {
+            print("connect");
             device.connect().then((isConnected) {
               if (isConnected == true) {
                 navigateToDevicePage(device).then((value) => device.disconnect());

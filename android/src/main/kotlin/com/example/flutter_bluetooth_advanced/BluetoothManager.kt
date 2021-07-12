@@ -89,16 +89,29 @@ class BluetoothManager(private val activity: Activity) {
             }
 
             override fun onConnected(socket: BluetoothSocket) {
-                onConnected()
+                print("connected")
+                activity.runOnUiThread { onConnected() }
             }
 
             override fun onError(message: String?) {
-                onErrorResult(message ?: "")
+                activity.runOnUiThread { onErrorResult(message ?: "") }
             }
         })
-        connectionThreads.removeAll { !it.isConnected() }
         connectionThreads.add(connectionThread)
-        connectionThread.run()
+        connectionThread.start()
+        // connectionThreads.removeAll { !it.isConnected() }
+    }
+
+    fun sendDataToDevice(address: String?, data: ByteArray?, callBack: SendDataCallBack) {
+        if (address.isNullOrEmpty()) {
+            callBack.onError("address cannot be null or empty")
+        }
+        val foundConnection = connectionThreads.find { it.getDevice()?.address == address }
+        foundConnection?.write(data!!) { callBack.onError(it) }
+        callBack.onSuccess()
+        if (foundConnection == null) {
+            callBack.onError("Connection doesn't exist")
+        }
     }
 
     private fun unregisterReceiver(receiver: BroadcastReceiver?) {
@@ -114,7 +127,7 @@ class BluetoothManager(private val activity: Activity) {
 
     fun disconnect(address: String, onSuccess: () -> Unit, onError: (message: String) -> Unit) {
         val foundConnection = connectionThreads.find { it.getSocket()?.remoteDevice?.address == address }
-        val device = foundConnection?.getDevice();
+        val device = foundConnection?.getDevice()
         Log.i(TAG, "disconnect: disconnect socket with name: ${device?.name}  address: ${device?.address}")
         foundConnection?.cancel(onSuccess, onError)
         connectionThreads.remove(foundConnection)
@@ -163,4 +176,9 @@ interface ScanEventListener {
 
 interface BluetoothStateChangeListener {
     fun onStateChanged(bluetoothState: String?)
+}
+
+interface SendDataCallBack {
+    fun onSuccess()
+    fun onError(errorMessage: String?)
 }

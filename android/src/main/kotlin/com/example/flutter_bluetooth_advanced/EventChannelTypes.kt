@@ -11,6 +11,14 @@ class EventChannelTypes {
     }
 }
 
+class MapperKeys {
+    companion object {
+        const val data = "data"
+        const val type = "type"
+        const val address = "address"
+    }
+}
+
 class MethodNameKeys {
     companion object {
         const val scan = "scan"
@@ -19,6 +27,7 @@ class MethodNameKeys {
         const val disconnect = "disconnect"
         const val disconnectAll = "disconnectAll"
         const val listenBluetoothState = "listenBluetoothState"
+        const val sendData = "sendData"
     }
 }
 

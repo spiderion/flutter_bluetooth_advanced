@@ -19,7 +19,7 @@ class ConnectionThread(
     }
 
     private fun createUUID(uuid: String?): UUID {
-        return UUID.fromString(uuid);
+        return UUID.fromString(uuid)
     }
 
     override fun run() {
@@ -30,12 +30,12 @@ class ConnectionThread(
                 connectionCallbacks.onConnected(socket)
             }
         } catch (e: Exception) {
-            connectionCallbacks.onError(e.message);
+            connectionCallbacks.onError(e.message)
         }
     }
 
     fun getSocket(): BluetoothSocket? {
-        return mmSocket;
+        return mmSocket
     }
 
     fun cancel(onSuccess: () -> Unit, onError: (message: String) -> Unit) {
@@ -45,7 +45,16 @@ class ConnectionThread(
         } catch (e: IOException) {
             val error = "Could not close the client socket"
             Log.e(TAG, error, e)
-            onError(error + " " + e.message);
+            onError(error + " " + e.message)
+        }
+    }
+
+    fun write(bytes: ByteArray, onError: (errorMessage: String) -> Unit) {
+        try {
+            mmSocket?.outputStream?.write(bytes)
+        } catch (e: IOException) {
+            onError(e.message ?: "error sending data to device")
+            return
         }
     }
 

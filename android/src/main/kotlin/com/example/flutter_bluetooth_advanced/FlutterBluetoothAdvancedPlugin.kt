@@ -35,8 +35,8 @@ class FlutterBluetoothAdvancedPlugin : FlutterPlugin, MethodCallHandler, Activit
             MethodNameKeys.disconnect -> onDisconnect(call.arguments as String, result)
             MethodNameKeys.disconnectAll -> onDisconnectAll(result)
             MethodNameKeys.listenBluetoothState -> onListenBluetoothState(result)
+            MethodNameKeys.sendData -> onSendDataToDevice(call.arguments<HashMap<String, Any?>>(), result)
             else -> result.notImplemented()
-
         }
     }
 
@@ -80,6 +80,21 @@ class FlutterBluetoothAdvancedPlugin : FlutterPlugin, MethodCallHandler, Activit
         })
     }
 
+    private fun onSendDataToDevice(args: HashMap<String, Any?>, result: Result) {
+        val address: String? = args[MapperKeys.address] as String?
+        val data = args[MapperKeys.data] as ByteArray?
+        bluetoothManager?.sendDataToDevice(address, data, object : SendDataCallBack {
+            override fun onSuccess() {
+                result.success(true)
+            }
+
+            override fun onError(errorMessage: String?) {
+                result.error("ERROR_SENDING_DATA", errorMessage, "error sending data")
+            }
+        })
+
+    }
+
     private fun onScan(result: Result) {
         bluetoothManager?.scanDevices(object : ScanEventListener {
             override fun onDeviceFound(device: Map<String, Any?>) {
@@ -103,7 +118,7 @@ class FlutterBluetoothAdvancedPlugin : FlutterPlugin, MethodCallHandler, Activit
 
 
     private fun sendEventToFlutter(type: String, data: Any?) {
-        val map = mapOf("type" to type, "data" to data)
+        val map = mapOf(MapperKeys.type to type, MapperKeys.data to data)
         streamHandler.getSink()?.success(map)
     }
 
